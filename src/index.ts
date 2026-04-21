@@ -1,28 +1,42 @@
 import type { Plugin } from "@opencode-ai/plugin"
+import { resolveConfig } from "./config.js"
+import { createCorrectionHandler } from "./correction.js"
+import { createPhrasesHandler } from "./phrases.js"
 
-export const EnglishProbe: Plugin = async ({ client }) => {
+export const EnglishLearn: Plugin = async ({ client, directory }) => {
+  // Resolve config — if small_model is missing or plugin is disabled, return no-op hooks
+  const resolved = await resolveConfig(directory, client as any)
+  if (!resolved) {
+    console.warn("[english-learn] plugin disabled (no small_model or disabled in config)")
+    return {}
+  }
+
+  const { plugin: config, smallModel } = resolved
+
+  const deps = {
+    client: client as any,
+    directory,
+    smallModel,
+    config,
+  }
+
+  const correctionHandler = createCorrectionHandler(deps)
+  const phrasesHandler = createPhrasesHandler(deps)
+
   return {
-    event: async ({ event }) => {
-      if (event.type !== "session.idle") return
-
+    "chat.message": async (input, output) => {
       try {
-        await client.tui.showToast({
-          body: {
-            title: "English tip",
-            message:
-              "意思清楚，但有几处不太自然：crashed at gamemode loading phase\n" +
-              "少了冠词；does this time reproduced 时态混了，应该 did...reproduce；\n" +
-              "proved the game load... 偏口语堆叠。\n\n" +
-              "改写一下会更顺：\n" +
-              "Last time we crashed during the gamemode loading phase. Did this\n" +
-              "run reproduce the issue, or did the game load the gamemode\n" +
-              "successfully?",
-            variant: "info",
-            duration: 15000,
-          },
-        })
+        await correctionHandler(input as any, output as any)
       } catch (err) {
-        console.error("[english-learn-probe] toast failed:", err)
+        console.error("[english-learn] chat.message hook error (suppressed):", err)
+      }
+    },
+
+    event: async ({ event }) => {
+      try {
+        await phrasesHandler(event as any)
+      } catch (err) {
+        console.error("[english-learn] event hook error (suppressed):", err)
       }
     },
   }

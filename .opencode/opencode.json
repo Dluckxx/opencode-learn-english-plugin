@@ -1,0 +1,6 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "file:///C:/Users/dluckdu/Documents/GitHub/opencode-learn-english-plugin"
+  ]
+}

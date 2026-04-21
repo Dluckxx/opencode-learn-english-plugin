@@ -1,0 +1,10 @@
+{
+  "name": "english-learn-probe",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*",
+    "@opencode-ai/sdk": "*"
+  }
+}

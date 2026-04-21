@@ -1,10 +1,21 @@
 {
-  "name": "english-learn-probe",
-  "version": "0.0.1",
+  "name": "opencode-learn-english",
+  "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "node-notifier": "^9.0.1"
+  },
   "peerDependencies": {
     "@opencode-ai/plugin": "*",
     "@opencode-ai/sdk": "*"
+  },
+  "devDependencies": {
+    "vitest": "^3.1.1",
+    "typescript": "^5.8.3"
   }
 }

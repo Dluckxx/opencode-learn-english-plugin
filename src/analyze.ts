@@ -110,8 +110,8 @@ export async function analyze(
     if (sessionID) {
       try {
         await client.session.delete({ path: { id: sessionID } })
-      } catch {
-        // Best-effort cleanup; ignore errors
+      } catch (cleanupErr) {
+        console.warn("[english-learn] session cleanup failed:", cleanupErr)
       }
     }
   }

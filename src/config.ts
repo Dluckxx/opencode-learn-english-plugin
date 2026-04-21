@@ -16,7 +16,7 @@ const DEFAULT_CONFIG: PluginConfig = {
 
 export interface ResolvedConfig {
   plugin: PluginConfig
-  smallModel: { providerID: string; modelID: string } | null
+  smallModel: { providerID: string; modelID: string }
 }
 
 function stripJsoncComments(text: string): string {

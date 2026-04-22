@@ -106,11 +106,11 @@ export function readPluginConfig(directory: string): PluginConfig {
 }
 
 export async function resolveSmallModel(
-  client: { config: { get: () => Promise<{ small_model?: string }> } },
+  client: { config: { get: () => Promise<{ data?: { small_model?: string } }> } },
 ): Promise<{ providerID: string; modelID: string } | null> {
   try {
-    const cfg = await client.config.get()
-    const raw = cfg.small_model
+    const result = await client.config.get()
+    const raw = result.data?.small_model
     if (!raw) return null
     return parseModelString(raw)
   } catch (err) {

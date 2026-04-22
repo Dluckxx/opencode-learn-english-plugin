@@ -3,7 +3,10 @@ interface AnalysisClient {
     create: (input: {
       body?: { title?: string }
       query?: { directory?: string }
-    }) => Promise<{ id: string } | { info: { id: string } }>
+    }) => Promise<{
+      data?: { id: string } | { info: { id: string } }
+      error?: unknown
+    }>
     prompt: (input: {
       path: { id: string }
       body: {
@@ -15,8 +18,21 @@ interface AnalysisClient {
       }
       query: { directory: string }
     }) => Promise<{
-      info: { id?: string; role: string; error?: unknown }
-      parts: Array<{ type: string; text?: string }>
+      data?: {
+        info: { id?: string; role: string; error?: unknown }
+        parts: Array<{ type: string; text?: string }>
+      }
+      error?: unknown
+    }>
+    messages: (input: {
+      path: { id: string }
+      query?: { directory?: string; limit?: number }
+    }) => Promise<{
+      data?: Array<{
+        info: { id?: string; role: string; error?: unknown }
+        parts: Array<{ type: string; text?: string }>
+      }>
+      error?: unknown
     }>
     delete: (input: { path: { id: string } }) => Promise<unknown>
   }
@@ -45,8 +61,20 @@ export async function analyze(
       body: { title: "English learning analysis" },
       query: { directory },
     })
+
+    if (created.error) {
+      console.error("[english-learn] session creation failed:", created.error)
+      return null
+    }
+
+    const createdData = created.data
+    if (!createdData) {
+      console.error("[english-learn] session creation returned no data")
+      return null
+    }
+
     // Handle both possible response shapes
-    sessionID = "id" in created ? created.id : "info" in created ? created.info.id : null
+    sessionID = "id" in createdData ? createdData.id : "info" in createdData ? createdData.info.id : null
     if (!sessionID) {
       console.error("[english-learn] failed to get session ID from create response")
       return null
@@ -54,7 +82,7 @@ export async function analyze(
 
     // Send the analysis prompt synchronously — waits for full response
     let timer: ReturnType<typeof setTimeout> | null = null
-    const response: Awaited<ReturnType<AnalysisClient["session"]["prompt"]>> | null = await Promise.race([
+    const result = await Promise.race([
       client.session.prompt({
         path: { id: sessionID },
         body: {
@@ -65,13 +93,22 @@ export async function analyze(
         },
         query: { directory },
       }),
-      new Promise<null>((_, reject) => {
+      new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error("analysis timeout")), ANALYSIS_TIMEOUT_MS)
       }),
     ])
     if (timer) clearTimeout(timer)
 
-    if (!response) return null
+    if (result.error) {
+      console.error("[english-learn] prompt returned error:", result.error)
+      return null
+    }
+
+    const response = result.data
+    if (!response) {
+      console.error("[english-learn] prompt returned no data")
+      return null
+    }
 
     // Check for errors in the assistant response
     if (response.info.error) return null

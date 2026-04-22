@@ -36,10 +36,18 @@ export function createPhrasesHandler(deps: PhrasesDeps) {
 
     try {
       // Fetch messages for this session
-      const messages = await (deps.client as any).session.messages({
+      const result = await deps.client.session.messages({
         path: { id: sessionID },
         query: { directory: deps.directory },
       })
+
+      if (result.error) {
+        console.error("[english-learn] failed to fetch messages:", result.error)
+        return
+      }
+
+      const messages = result.data
+      if (!messages || messages.length === 0) return
 
       // Find the last assistant message
       let assistantMsg: {

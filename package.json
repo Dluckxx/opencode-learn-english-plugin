@@ -7,9 +7,6 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "dependencies": {
-    "node-notifier": "^9.0.1"
-  },
   "peerDependencies": {
     "@opencode-ai/plugin": "*",
     "@opencode-ai/sdk": "*"

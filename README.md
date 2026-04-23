@@ -17,7 +17,7 @@ Add the plugin to your `opencode.json`:
 
 ```json
 {
-  "plugin": ["opencode-learn-english"]
+  "plugin": ["@dluck/opencode-learn-english"]
 }
 ```
 
@@ -28,6 +28,8 @@ Or install locally for development:
   "plugin": ["file:///abs/path/to/opencode-learn-english-plugin"]
 }
 ```
+
+> **Note:** The `publishConfig.access` is set to `"public"` so the scoped package can be installed without a paid npm account.
 
 ## Configuration
 

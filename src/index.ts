@@ -1,65 +1,47 @@
+/**
+ * opencode English Learning Plugin — v2 (system-prompt injection)
+ *
+ * Prior v1 ran a separate small-model analysis over direct HTTP and surfaced
+ * tips via `tui.showToast`. That fought the toast channel with other plugins
+ * (oh-my-openagent spams ~100ms toasts during a turn) and the correction
+ * tip was effectively invisible. See docs/handoff/ for the full debugging
+ * trail.
+ *
+ * v2 is ~100x simpler: we inject an "English tutor" instruction into the
+ * system prompt on every real user turn (not title generation / small-model
+ * helpers). The main LLM then appends a tips block to the END of its own
+ * reply, inline with the conversation. No background analysis, no separate
+ * credentials, no toast queue, no race conditions.
+ *
+ * Hook used: `experimental.chat.system.transform`. See:
+ *   opencode/packages/opencode/src/session/llm.ts:85-89
+ */
 import type { Plugin } from "@opencode-ai/plugin"
-import { resolveConfig } from "./config.js"
-import { createCorrectionHandler } from "./correction.js"
-import { createPhrasesHandler } from "./phrases.js"
+import { readPluginConfig } from "./config.js"
+import { ENGLISH_TIPS_INSTRUCTION } from "./tips-instruction.js"
 
-export const EnglishLearn: Plugin = ({ client, directory }) => {
-  // Lazy config resolution — done on first hook call, not during plugin init.
-  // This avoids blocking opencode startup if the SDK client isn't fully ready.
-  let resolved: Awaited<ReturnType<typeof resolveConfig>> | undefined
-  let initPromise: Promise<void> | null = null
-  let correctionHandler: ReturnType<typeof createCorrectionHandler> | null = null
-  let phrasesHandler: ReturnType<typeof createPhrasesHandler> | null = null
-
-  async function ensureConfig(): Promise<boolean> {
-    if (resolved !== undefined) return resolved !== null
-    if (initPromise) {
-      await initPromise
-      return resolved !== null
-    }
-
-    initPromise = (async () => {
-      try {
-        resolved = await resolveConfig(directory, client as any)
-        if (!resolved) {
-          console.warn("[english-learn] plugin disabled (no small_model or disabled in config)")
-          return
-        }
-        const deps = {
-          client: client as any,
-          directory,
-          smallModel: resolved.smallModel,
-          config: resolved.plugin,
-        }
-        correctionHandler = createCorrectionHandler(deps)
-        phrasesHandler = createPhrasesHandler(deps)
-      } catch (err) {
-        console.error("[english-learn] config resolution failed:", err)
-        resolved = null
-      }
-    })()
-
-    await initPromise
-    return resolved !== null
-  }
+export const EnglishLearn: Plugin = ({ directory }) => {
+  // Config resolution is synchronous file I/O — fast enough to do on plugin
+  // construction. The previous version deferred this to avoid blocking the
+  // startup sequence; we've measured it and it's sub-millisecond.
+  const config = readPluginConfig(directory)
 
   return {
-    "chat.message": async (input, output) => {
-      try {
-        if (!(await ensureConfig())) return
-        await correctionHandler!(input as any, output as any)
-      } catch (err) {
-        console.error("[english-learn] chat.message hook error (suppressed):", err)
-      }
-    },
+    "experimental.chat.system.transform": async (_input, output) => {
+      if (!config.enabled) return
 
-    event: async ({ event }) => {
-      try {
-        if (!(await ensureConfig())) return
-        await phrasesHandler!(event as any)
-      } catch (err) {
-        console.error("[english-learn] event hook error (suppressed):", err)
-      }
+      // Skip short-lived helper calls (title generation, compaction summary,
+      // conversation summarization, etc.). They pass an empty `system` array
+      // because they don't use the full agent prompt. We only want to teach
+      // during real user turns.
+      if (output.system.length === 0) return
+
+      // Append our tutor instruction to the last block so provider-level
+      // prompt caching isn't disturbed — opencode packs the rest of the
+      // system prompt into `output.system[last]` downstream of this hook,
+      // and adding to its tail leaves the cached prefix intact.
+      const last = output.system.length - 1
+      output.system[last] = output.system[last] + ENGLISH_TIPS_INSTRUCTION
     },
   }
 }

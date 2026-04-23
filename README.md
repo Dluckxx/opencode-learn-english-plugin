@@ -1,38 +1,33 @@
 # opencode English Learning Plugin
 
-A non-intrusive opencode plugin that helps Chinese-speaking developers improve their English while coding. The plugin observes your conversation and surfaces short bilingual tips via the native TUI toast — never affecting your coding session.
+A non-intrusive opencode plugin that helps Chinese-speaking developers improve their English while coding. The plugin injects an English tutor instruction into the system prompt, so the main LLM appends a short tips block at the end of its own replies — no background analysis, no separate API calls, no toast queue.
 
-## Features
+## How It Works
 
-### Input Correction (after-submit)
+The plugin hooks into `experimental.chat.system.transform` and appends a structured "English Learning Tips" instruction to the system prompt. During real user turns (not title generation or compaction), the LLM is asked to:
 
-When you submit a prompt in English, the plugin asks a small model to identify grammar errors and unidiomatic phrasing, then shows a toast with a bilingual diagnosis and a clean rewrite.
+1. **Input Correction** — If the user wrote in English with grammar errors or unidiomatic phrasing, show a `Prompt:` section with the verbatim awkward phrase → a natural rewrite.
+2. **Vocabulary / Phrase Tips** — Surface 2–3 notable English expressions from the AI's own reply with plain-English definitions.
 
-- Appears ~2–3 seconds after submit, while the assistant is already streaming
-- Only triggers on pure-English messages (4+ words, no CJK characters)
-- If nothing is wrong, no toast appears (LLM veto)
-
-### Phrase / Vocabulary Tips (after-turn)
-
-When an assistant turn completes, the plugin surfaces 2–3 noteworthy English expressions with English-only definitions (英译英) and short examples.
-
-- Triggers on `session.status` idle (once per turn boundary)
-- Only shows phrases from English assistant replies
-- If the reply has no learnable expressions, no toast appears
+Both features are **veto-powered**: if there's nothing worth teaching, the LLM omits the block entirely. The tips block is always in English, regardless of the conversation language.
 
 ## Install
 
-1. Build or link this plugin locally
-2. Add to your `opencode.json`:
+Add the plugin to your `opencode.json`:
 
 ```json
 {
-  "plugin": ["file:///abs/path/to/opencode-learn-english-plugin"],
-  "small_model": "Tencent/claude-haiku-4-5"
+  "plugin": ["opencode-learn-english"]
 }
 ```
 
-The `small_model` field is required — the plugin uses it for all analysis calls. If unset, the plugin silently disables itself.
+Or install locally for development:
+
+```json
+{
+  "plugin": ["file:///abs/path/to/opencode-learn-english-plugin"]
+}
+```
 
 ## Configuration
 
@@ -42,9 +37,7 @@ Optional plugin-specific config under `experimental.english_learn`:
 {
   "experimental": {
     "english_learn": {
-      "enabled": true,
-      "correction": { "enabled": true, "duration": 15000 },
-      "phrases": { "enabled": true, "duration": 20000 }
+      "enabled": true
     }
   }
 }
@@ -53,20 +46,23 @@ Optional plugin-specific config under `experimental.english_learn`:
 | Key | Default | Description |
 |---|---|---|
 | `enabled` | `true` | Master switch for the entire plugin |
-| `correction.enabled` | `true` | Enable/disable input correction tips |
-| `correction.duration` | `15000` | Toast duration in ms for correction tips |
-| `phrases.enabled` | `true` | Enable/disable phrase tips |
-| `phrases.duration` | `20000` | Toast duration in ms for phrase tips |
 
 ## Design Principles
 
-- **Non-intrusive**: Never modifies conversation history, prompt parts, or LLM behavior
-- **Ephemeral**: Tips appear as toasts and disappear — no persistent log
-- **Veto-powered**: The analysis LLM explicitly returns nothing when there's nothing worth teaching
+- **Non-intrusive**: Never modifies conversation history, prompt parts, or LLM behavior beyond the system-prompt injection
+- **Veto-powered**: The LLM explicitly returns nothing when there's nothing worth teaching
+- **Zero infrastructure**: No background model calls, no separate credentials, no toast queue — the main LLM does all the work
 - **Error-safe**: All plugin errors route to OS notifications, never to opencode toasts; hook handlers catch all exceptions
 
 ## Requirements
 
 - opencode with plugin support
-- A configured `small_model` in opencode (e.g., `Tencent/claude-haiku-4-5`)
 - Bun runtime
+
+## Development
+
+```bash
+bun install        # install dependencies
+bun run build      # compile to dist/
+bun test           # run tests
+```

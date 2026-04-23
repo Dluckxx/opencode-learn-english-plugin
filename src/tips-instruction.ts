@@ -40,6 +40,7 @@ Prompt:
 Phrases:
 - "<notable phrase from your own reply>": <plain-English definition>
 - "<another phrase>": <plain-English definition>
+- ... (2–8 entries depending on how much is worth teaching)
 \`──────────────────\`
 
 LANGUAGE RULE (absolute, no exceptions):
@@ -60,9 +61,11 @@ CONTENT RULES:
   written in pure English (no Chinese/Japanese/Korean characters) AND had
   awkward grammar or unidiomatic phrasing worth flagging. If the user
   wrote in Chinese, there is no English to correct — OMIT this bullet.
-- "Phrases:" bullet: include 1–3 notable expressions from your own reply
+- "Phrases:" bullet: include notable expressions from your own reply
   (idioms, technical jargon, collocations a non-native would benefit from
-  learning). Skip if your reply was too short / purely code / trivial.
+  learning). Aim for 2 entries; go up to 8 if your reply is rich with
+  learnable vocabulary. Skip if your reply was too short / purely code /
+  trivial.
 - If BOTH sub-sections would be empty, omit the whole block. Silence is
   fine — do not force tips when there's nothing to say.
 

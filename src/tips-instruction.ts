@@ -63,9 +63,9 @@ CONTENT RULES:
   wrote in Chinese, there is no English to correct — OMIT this bullet.
 - "Phrases:" bullet: include notable expressions from your own reply
   (idioms, technical jargon, collocations a non-native would benefit from
-  learning). Aim for 2 entries; go up to 8 if your reply is rich with
-  learnable vocabulary. Skip if your reply was too short / purely code /
-  trivial.
+  learning). Count is flexible: 0 if nothing stands out, 2 as a typical
+  baseline, up to 8 if your reply is dense with learnable vocabulary. The
+  only rule is quality over quantity — never pad with weak entries.
 - If BOTH sub-sections would be empty, omit the whole block. Silence is
   fine — do not force tips when there's nothing to say.
 

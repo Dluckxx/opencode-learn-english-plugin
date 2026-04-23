@@ -1,24 +1,25 @@
+/**
+ * Minimal config layer — the plugin now has a single on/off switch.
+ *
+ * Prior version resolved `small_model` from opencode's SDK config and parsed
+ * a nested `experimental.english_learn` block. Both are gone now that tips
+ * piggyback on the main LLM via a system-prompt injection: no background
+ * analysis, no toast durations, no provider auth.
+ *
+ * The plugin reads `experimental.english_learn.enabled` (default true) from
+ * the project's opencode.json. If the block is missing or parse fails, the
+ * plugin stays enabled — same friendly default as before.
+ */
 import { readFileSync, existsSync } from "fs"
 import { join } from "path"
-import { parseModelString } from "./guards.js"
 
 export interface PluginConfig {
   enabled: boolean
-  correction: { enabled: boolean; duration: number }
-  phrases: { enabled: boolean; duration: number }
 }
 
-const DEFAULT_CONFIG: PluginConfig = {
-  enabled: true,
-  correction: { enabled: true, duration: 15000 },
-  phrases: { enabled: true, duration: 20000 },
-}
+const DEFAULT_CONFIG: PluginConfig = { enabled: true }
 
-export interface ResolvedConfig {
-  plugin: PluginConfig
-  smallModel: { providerID: string; modelID: string }
-}
-
+/** Strip // line comments and /* block comments *\/ while respecting string literals. */
 function stripJsoncComments(text: string): string {
   let result = ""
   let inString = false
@@ -50,15 +51,11 @@ function stripJsoncComments(text: string): string {
     }
 
     if (!inString && char === "/" && next === "/") {
-      // Skip until end of line
-      while (i < text.length && text[i] !== "\n" && text[i] !== "\r") {
-        i++
-      }
+      while (i < text.length && text[i] !== "\n" && text[i] !== "\r") i++
       continue
     }
 
     if (!inString && char === "/" && next === "*") {
-      // Skip until end of block comment
       i += 2
       while (i < text.length) {
         if (text[i] === "*" && text[i + 1] === "/") {
@@ -82,55 +79,14 @@ export function readPluginConfig(directory: string): PluginConfig {
     if (!existsSync(filepath)) continue
     try {
       const raw = readFileSync(filepath, "utf-8")
-      const stripped = stripJsoncComments(raw)
-      const json = JSON.parse(stripped)
+      const json = JSON.parse(stripJsoncComments(raw))
       const block = json?.experimental?.english_learn
       if (!block) return DEFAULT_CONFIG
-      return {
-        enabled: block.enabled ?? DEFAULT_CONFIG.enabled,
-        correction: {
-          enabled: block.correction?.enabled ?? DEFAULT_CONFIG.correction.enabled,
-          duration: block.correction?.duration ?? DEFAULT_CONFIG.correction.duration,
-        },
-        phrases: {
-          enabled: block.phrases?.enabled ?? DEFAULT_CONFIG.phrases.enabled,
-          duration: block.phrases?.duration ?? DEFAULT_CONFIG.phrases.duration,
-        },
-      }
+      return { enabled: block.enabled ?? DEFAULT_CONFIG.enabled }
     } catch (err) {
       console.warn("[english-learn] failed to parse config, using defaults:", err)
       return DEFAULT_CONFIG
     }
   }
   return DEFAULT_CONFIG
-}
-
-export async function resolveSmallModel(
-  client: { config: { get: () => Promise<{ data?: { small_model?: string } }> } },
-): Promise<{ providerID: string; modelID: string } | null> {
-  try {
-    const result = await client.config.get()
-    const raw = result.data?.small_model
-    if (!raw) return null
-    return parseModelString(raw)
-  } catch (err) {
-    console.warn("[english-learn] failed to read small_model from SDK config:", err)
-    return null
-  }
-}
-
-export async function resolveConfig(
-  directory: string,
-  client: { config: { get: () => Promise<{ small_model?: string }> } },
-): Promise<ResolvedConfig | null> {
-  const plugin = readPluginConfig(directory)
-  if (!plugin.enabled) return null
-
-  const smallModel = await resolveSmallModel(client)
-  if (!smallModel) {
-    console.warn("[english-learn] small_model not configured, plugin disabled for this session")
-    return null
-  }
-
-  return { plugin, smallModel }
 }

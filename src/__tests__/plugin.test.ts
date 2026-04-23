@@ -83,11 +83,14 @@ describe("EnglishLearn plugin", () => {
     expect(system).toEqual(["Original system prompt."])
   })
 
-  it("instruction includes the fixed ASCII-art frame the user specified", () => {
+  it("instruction includes the ASCII-art frame the user specified", () => {
     // Lock in the format we told the user about — regression guard against
-    // accidentally reformatting the tutor prompt.
-    expect(ENGLISH_TIPS_INSTRUCTION).toContain("★ English Tips ─────────")
+    // accidentally reformatting the tutor prompt. Splitters must be wrapped
+    // in backticks for TUI highlighting.
+    expect(ENGLISH_TIPS_INSTRUCTION).toContain("`★ English Tips ─")
     expect(ENGLISH_TIPS_INSTRUCTION).toContain("Prompt:")
     expect(ENGLISH_TIPS_INSTRUCTION).toContain("Phrases:")
+    expect(ENGLISH_TIPS_INSTRUCTION).toContain("`──")
+    expect(ENGLISH_TIPS_INSTRUCTION).toContain("dash length")
   })
 })

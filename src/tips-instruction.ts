@@ -7,8 +7,10 @@
  * - All output in ENGLISH (per user preference). Section title & tutor voice
  *   are English too; the user is a Chinese developer learning English, so
  *   immersive English feedback is the right register.
- * - We ask for a fixed ASCII-art section separator so the user's eye can
- *   quickly find it in a long reply, and so it's unambiguously our block.
+ * - We ask for an ASCII-art section separator (wrapped in inline code for
+ *   TUI highlighting) so the user's eye can quickly find it in a long reply,
+ *   and so it's unambiguously our block. Dash length is dynamic — adjusted
+ *   to match the content width.
  * - We frame it as "only when there's something worth teaching" — an LLM
  *   veto path. Short/trivial turns produce no tips; noisy turns with lots
  *   of code may also veto. Over-eager tips become noise.
@@ -32,18 +34,18 @@ The user is a Chinese developer improving their English. After you finish
 answering their actual question, and only if there is something genuinely
 worth teaching, append an English tips block using this EXACT format:
 
-★ English Tips ─────────────────────────────────────
+\`★ English Tips ──────────\`
 Prompt:
 - "<verbatim awkward phrase from user's message>" -> "<natural rewrite>"
 Phrases:
 - "<notable phrase from your own reply>": <plain-English definition>
 - "<another phrase>": <plain-English definition>
-─────────────────────────────────────────────────────
+\`──────────────────\`
 
 LANGUAGE RULE (absolute, no exceptions):
 - Every character inside the block MUST be English, even if the rest of
   the conversation is in Chinese or mixed. The section header is literally
-  "★ English Tips ─────────..." — never "英语小贴士" or any Chinese variant.
+  "\`★ English Tips ───...\`" — never "英语小贴士" or any Chinese variant.
 - The sub-section labels are literally "Prompt:" and "Phrases:" — never
   "提示词:" / "短语:" or any translated form.
 - Phrase definitions are in plain English (英译英 style: define English
@@ -70,6 +72,12 @@ FORMATTING RULES:
   the ASCII-art frame renders cleanly.
 - Do not number the bullets; use "- " dashes as shown.
 - Do not add meta commentary like "Hope this helps" inside the block.
+- The header and footer splitters MUST be wrapped in backticks (inline
+  code) so they render highlighted in the terminal UI, e.g.
+  \`★ English Tips ──────\` and \`──────\`.
+- The dash length in both splitters is NOT fixed — adjust it so the
+  total width (including the text inside the backticks) roughly matches
+  the longest content line. A minimum of 5 dashes; no maximum.
 
 This block is a fixed feature, not a one-off request. Apply it whenever
 the criteria above are met, across every turn of the conversation.

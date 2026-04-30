@@ -40,7 +40,7 @@ describe("EnglishLearn plugin", () => {
 
     const system = ["You are a helpful coding assistant.", "Session-specific rules here."]
     await fn(
-      { sessionID: "ses_test", model: { providerID: "x", modelID: "y" } as any },
+      { sessionID: "ses_main", model: { providerID: "x", modelID: "y" } as any },
       { system },
     )
 
@@ -55,9 +55,17 @@ describe("EnglishLearn plugin", () => {
     const hooks = await EnglishLearn(makePluginInput(tmpDir) as any)
     const fn = hooks["experimental.chat.system.transform"]!
 
+    // First call establishes the primary session
+    const mainSystem = ["Main system prompt."]
+    await fn(
+      { sessionID: "ses_main", model: { providerID: "x", modelID: "y" } as any },
+      { system: mainSystem },
+    )
+
+    // Helper call with empty system from the same session
     const system: string[] = []
     await fn(
-      { sessionID: "ses_test", model: { providerID: "x", modelID: "y" } as any },
+      { sessionID: "ses_main", model: { providerID: "x", modelID: "y" } as any },
       { system },
     )
 
@@ -83,14 +91,64 @@ describe("EnglishLearn plugin", () => {
     expect(system).toEqual(["Original system prompt."])
   })
 
-  it("instruction includes the ASCII-art frame the user specified", () => {
+  it("skips sub-agent sessions (different sessionID from primary)", async () => {
+    const hooks = await EnglishLearn(makePluginInput(tmpDir) as any)
+    const fn = hooks["experimental.chat.system.transform"]!
+
+    // First call with main session — establishes primary
+    const mainSystem = ["Main system prompt."]
+    await fn(
+      { sessionID: "ses_main", model: { providerID: "x", modelID: "y" } as any },
+      { system: mainSystem },
+    )
+    expect(mainSystem[0]).toContain("English Learning Tips")
+
+    // Second call with a DIFFERENT session ID — sub-agent, should be skipped
+    const subAgentSystem = ["Sub-agent system prompt."]
+    await fn(
+      { sessionID: "ses_subagent_abc", model: { providerID: "x", modelID: "y" } as any },
+      { system: subAgentSystem },
+    )
+    expect(subAgentSystem).toEqual(["Sub-agent system prompt."])
+  })
+
+  it("allows multiple calls from the same primary session", async () => {
+    const hooks = await EnglishLearn(makePluginInput(tmpDir) as any)
+    const fn = hooks["experimental.chat.system.transform"]!
+
+    // First call
+    const system1 = ["First turn."]
+    await fn(
+      { sessionID: "ses_main", model: { providerID: "x", modelID: "y" } as any },
+      { system: system1 },
+    )
+    expect(system1[0]).toContain("English Learning Tips")
+
+    // Second call, same session
+    const system2 = ["Second turn."]
+    await fn(
+      { sessionID: "ses_main", model: { providerID: "x", modelID: "y" } as any },
+      { system: system2 },
+    )
+    expect(system2[0]).toContain("English Learning Tips")
+  })
+
+  it("instruction includes the ASCII-art frame with aligned splitters", () => {
     // Lock in the format we told the user about — regression guard against
-    // accidentally reformatting the tutor prompt. Splitters must be wrapped
-    // in backticks for TUI highlighting.
+    // accidentally reformatting the tutor prompt.
     expect(ENGLISH_TIPS_INSTRUCTION).toContain("`★ English Tips ─")
     expect(ENGLISH_TIPS_INSTRUCTION).toContain("Prompt:")
     expect(ENGLISH_TIPS_INSTRUCTION).toContain("Phrases:")
     expect(ENGLISH_TIPS_INSTRUCTION).toContain("`──")
-    expect(ENGLISH_TIPS_INSTRUCTION).toContain("dash length")
+    // The fixed-width alignment rule
+    expect(ENGLISH_TIPS_INSTRUCTION).toContain("EXACTLY the same total character width")
+    expect(ENGLISH_TIPS_INSTRUCTION).toContain("55 char")
+  })
+
+  it("instruction explicitly forbids correcting non-English (CJK) input", () => {
+    // Guard against regression where Chinese input was "corrected" to English
+    expect(ENGLISH_TIPS_INSTRUCTION).toContain("Chinese/Japanese/Korean characters")
+    expect(ENGLISH_TIPS_INSTRUCTION).toContain("COMPLETELY SKIP")
+    expect(ENGLISH_TIPS_INSTRUCTION).toContain("Do NOT translate or")
   })
 })

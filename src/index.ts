@@ -26,8 +26,14 @@ export const EnglishLearn: Plugin = ({ directory }) => {
   // startup sequence; we've measured it and it's sub-millisecond.
   const config = readPluginConfig(directory)
 
+  // Track the primary (main) session. The first real LLM call we see is
+  // the main conversation; sub-agents spawned later get distinct session IDs
+  // and should NOT receive the tutor instruction — tips in sub-agent output
+  // are noise and waste tokens.
+  let primarySessionId: string | null = null
+
   return {
-    "experimental.chat.system.transform": async (_input, output) => {
+    "experimental.chat.system.transform": async (input, output) => {
       if (!config.enabled) return
 
       // Skip short-lived helper calls (title generation, compaction summary,
@@ -35,6 +41,13 @@ export const EnglishLearn: Plugin = ({ directory }) => {
       // because they don't use the full agent prompt. We only want to teach
       // during real user turns.
       if (output.system.length === 0) return
+
+      // Lock onto the first session we see as the primary conversation.
+      // Any subsequent session with a different ID is a sub-agent — skip it.
+      if (primarySessionId === null) {
+        primarySessionId = input.sessionID
+      }
+      if (input.sessionID !== primarySessionId) return
 
       // Append our tutor instruction to the last block so provider-level
       // prompt caching isn't disturbed — opencode packs the rest of the

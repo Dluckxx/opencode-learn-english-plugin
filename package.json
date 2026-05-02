@@ -1,6 +1,6 @@
 {
   "name": "@dluck/opencode-learn-english",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Non-intrusive opencode plugin that helps Chinese-speaking developers improve English while coding",
   "type": "module",
   "main": "./dist/index.js",
@@ -28,7 +28,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Dluckxx/opencode-learn-english-plugin.git"
+    "url": "git+https://github.com/Dluckxx/opencode-learn-english-plugin.git"
   },
   "publishConfig": {
     "access": "public"

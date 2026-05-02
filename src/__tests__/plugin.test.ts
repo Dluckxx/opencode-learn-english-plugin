@@ -73,6 +73,62 @@ describe("EnglishLearn plugin", () => {
     expect(system).toEqual([])
   })
 
+  it("skips same-session helper calls with non-empty compaction prompts", async () => {
+    const hooks = await EnglishLearn(makePluginInput(tmpDir) as any)
+    const fn = hooks["experimental.chat.system.transform"]!
+    const model = {
+      id: "provider/model",
+      providerID: "provider",
+      api: { id: "openai", url: "http://localhost", npm: "@ai-sdk/openai" },
+      name: "Test Model",
+      capabilities: {
+        temperature: true,
+        reasoning: false,
+        attachment: false,
+        toolcall: true,
+        input: { text: true, audio: false, image: false, video: false, pdf: false },
+        output: { text: true, audio: false, image: false, video: false, pdf: false },
+      },
+      cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+      limit: { context: 1000, output: 1000 },
+      status: "active",
+      options: {},
+      headers: {},
+    } satisfies Parameters<typeof fn>[0]["model"]
+
+    const mainSystem = ["Main system prompt."]
+    await fn({ sessionID: "ses_main", model }, { system: mainSystem })
+    expect(mainSystem[0]).toContain("English Learning Tips")
+
+    const compactionSystem = ["You are generating a compacted continuation summary."]
+    await fn({ sessionID: "ses_main", model }, { system: compactionSystem })
+
+    expect(compactionSystem).toEqual(["You are generating a compacted continuation summary."])
+  })
+
+  it("strips existing tip blocks from compaction context and forbids carry-over", async () => {
+    const hooks = await EnglishLearn(makePluginInput(tmpDir) as any)
+    const fn = hooks["experimental.session.compacting"]!
+
+    const context = [
+      [
+        "Assistant answer.",
+        "",
+        "`★ English Tips ─────────────────────────────────────────`",
+        "Phrases:",
+        '- "surface": a way a user interacts with software',
+        "`─────────────────────────────────────────────────────────`",
+      ].join("\n"),
+    ]
+
+    const output = { context }
+    await fn({ sessionID: "ses_main" }, output)
+
+    expect(output.context[0]).toBe("Assistant answer.")
+    expect(output.context.join("\n")).not.toContain("★ English Tips")
+    expect(output.context.at(-1)).toContain("omit terminal language-learning feedback blocks")
+  })
+
   it("respects experimental.english_learn.enabled=false", async () => {
     writeFileSync(
       join(tmpDir, "opencode.json"),

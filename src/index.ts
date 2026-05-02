@@ -20,7 +20,31 @@ import type { Plugin } from "@opencode-ai/plugin"
 import { readPluginConfig } from "./config.js"
 import { ENGLISH_TIPS_INSTRUCTION } from "./tips-instruction.js"
 
-export const EnglishLearn: Plugin = ({ directory }) => {
+const COMPACTION_CONTEXT_INSTRUCTION = `
+When generating the continuation summary, omit terminal language-learning feedback blocks from assistant replies. Do not preserve, summarize, quote, or regenerate that feedback in compacted/session-summary content.
+`
+
+const HELPER_SYSTEM_PROMPT_PATTERNS = [
+  /\bcompact(?:ed|ing|ion)?\b/i,
+  /\bcontinuation (?:prompt|summary|context)\b/i,
+  /\bsummar(?:y|ize|ise|izing|ising)\b/i,
+  /\btitle generation\b/i,
+  /\bgenerate (?:a )?title\b/i,
+]
+
+const ENGLISH_TIPS_BLOCK_PATTERN =
+  /`★ English Tips ─[^`]*`[\s\S]*?`─+`/g
+
+function isHelperSystemPrompt(system: string[]) {
+  const text = system.join("\n")
+  return HELPER_SYSTEM_PROMPT_PATTERNS.some((pattern) => pattern.test(text))
+}
+
+function stripEnglishTipsBlocks(text: string) {
+  return text.replace(ENGLISH_TIPS_BLOCK_PATTERN, "").trim()
+}
+
+export const EnglishLearn: Plugin = async ({ directory }) => {
   // Config resolution is synchronous file I/O — fast enough to do on plugin
   // construction. The previous version deferred this to avoid blocking the
   // startup sequence; we've measured it and it's sub-millisecond.
@@ -42,12 +66,19 @@ export const EnglishLearn: Plugin = ({ directory }) => {
       // during real user turns.
       if (output.system.length === 0) return
 
+      // Some helper agents (notably compaction / continuation summarizers)
+      // can run in the same session and still have a non-empty system prompt.
+      // They are not visible primary-agent replies, so do not teach there.
+      if (isHelperSystemPrompt(output.system)) return
+
       // Lock onto the first session we see as the primary conversation.
       // Any subsequent session with a different ID is a sub-agent — skip it.
+      const sessionId = input.sessionID
       if (primarySessionId === null) {
-        primarySessionId = input.sessionID
+        if (sessionId === undefined) return
+        primarySessionId = sessionId
       }
-      if (input.sessionID !== primarySessionId) return
+      if (sessionId !== primarySessionId) return
 
       // Append our tutor instruction to the last block so provider-level
       // prompt caching isn't disturbed — opencode packs the rest of the
@@ -55,6 +86,13 @@ export const EnglishLearn: Plugin = ({ directory }) => {
       // and adding to its tail leaves the cached prefix intact.
       const last = output.system.length - 1
       output.system[last] = output.system[last] + ENGLISH_TIPS_INSTRUCTION
+    },
+
+    "experimental.session.compacting": async (_input, output) => {
+      if (!config.enabled) return
+
+      output.context = output.context.map(stripEnglishTipsBlocks)
+      output.context.push(COMPACTION_CONTEXT_INSTRUCTION)
     },
   }
 }
